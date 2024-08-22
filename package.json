@@ -1,0 +1,17 @@
+{
+  "name": "mail-verify",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.10",
+    "typescript": "^5.0.2"
+  },
+  "dependencies": {
+    "axios": "^1.4.0"
+  }
+}
