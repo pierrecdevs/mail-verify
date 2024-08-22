@@ -11,8 +11,15 @@ interface EmailParts {
 
 const getIP = async (): Promise<string> => {
   try {
-    const apiEndpoints = ['icanhazip.com', 'ifconfig.me/ip', 'api.ipify.org', 'ipinfo.io/ip', 'ipecho.net/plain'];
-    const selectedAPI = apiEndpoints[Math.floor(Math.random() * apiEndpoints.length)];
+    const apiEndpoints = [
+      'icanhazip.com',
+      'ifconfig.me/ip',
+      'api.ipify.org',
+      'ipinfo.io/ip',
+      'ipecho.net/plain',
+    ];
+    const selectedAPI =
+      apiEndpoints[Math.floor(Math.random() * apiEndpoints.length)];
     const ip = await axios.get(`https://${selectedAPI}`);
     console.log('>> Getting IP address from %s', selectedAPI);
     return ip.data;
@@ -20,7 +27,7 @@ const getIP = async (): Promise<string> => {
     const error = err as Error;
     return Promise.reject(error.message);
   }
-}
+};
 
 const extractEmailParts = (address: string): EmailParts => {
   const matches = address.match(/([^ ]*)@([^ ]*)/);
@@ -30,12 +37,12 @@ const extractEmailParts = (address: string): EmailParts => {
     const emailParts: EmailParts = {
       email: address,
       user: matches[1],
-      domain: matches[2]
+      domain: matches[2],
     };
     return emailParts;
   }
-  return { email: address, user: '', domain: '' }
-}
+  return { email: address, user: '', domain: '' };
+};
 
 const getMXRecords = async (domain: string) => {
   try {
@@ -80,23 +87,28 @@ const verifyEmail = async (domain: string, email: string) => {
   } catch (error) {
     console.error(`[x] Error!: ${error}`);
   }
-}
+};
 
-console.info('>> Checking email: %s', email);
+const init = async () => {
+  console.info('>> Checking email: %s', email);
 
-const { domain } = extractEmailParts(email);
-if (!domain) {
-  console.error('[x] Could not get domain');
-  process.exit(-1);
-}
+  const { domain } = extractEmailParts(email);
+  if (!domain) {
+    console.error('[x] Could not get domain');
+    process.exit(-1);
+  }
 
-console.info('>> Domain: %s', domain);
-const mxResults = getMXRecords(domain);
+  console.info('>> Domain: %s', domain);
+  const mxResults = getMXRecords(domain);
 
-mxResults.then(async (data) => {
-  console.info('>> MX Records:', data);
-  verifyEmail(data, email);
-}).catch((err) => {
-  console.error('[x] ERROR! %s', err.message);
-});
+  mxResults
+    .then(async (data) => {
+      console.info('>> MX Records:', data);
+      verifyEmail(data, email);
+    })
+    .catch((err) => {
+      console.error('[x] ERROR! %s', err.message);
+    });
+};
 
+init();
