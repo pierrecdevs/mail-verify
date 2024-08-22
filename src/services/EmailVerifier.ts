@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import axios from 'axios';
 import {MxRecord, promises as dnsPromises} from 'dns';
 import {Socket} from 'net';
 
@@ -8,58 +8,83 @@ export interface EmailParts {
   user: string;
 }
 export default class EmailVerifier {
+  static async getIP(): Promise<string> {
+    try {
+      const apiEndpoints = [
+        'icanhazip.com',
+        'ifconfig.me/ip',
+        'api.ipify.org',
+        'ipinfo.io/ip',
+        'ipecho.net/plain',
+      ];
+      const selectedAPI =
+          apiEndpoints[Math.floor(Math.random() * apiEndpoints.length)];
+      const pageResponse = await axios.get(`https://${selectedAPI}`);
+      console.info('>> Getting IP address from %s', selectedAPI);
+      const {data} = pageResponse
+      return Promise.resolve(data.trim());
+    } catch (err) {
+      const error = err as Error;
+      return Promise.reject(`error getting ip: ${error.message}`);
+    }
+  };
 
   static getEmailParts(email: string): EmailParts {
     const matches = email.match(/([^ ]*)@([^ ]*)/);
 
     return {
-        email,
-        user: matches ? matches[1] : '',
-        domain: matches ? matches[2] : '',
+      email,
+      user: matches ? matches[1] : '',
+      domain: matches ? matches[2] : '',
     };
   }
-  
-  static async getMxRecords(domain: string): Promise<MxRecord[] | string> {
+
+  static async getMxRecords(domain: string): Promise<MxRecord[]|string> {
     try {
-      return await dnsPromises.resolveMx(domain);
-    } catch (err: unknown) { 
+      const records = await dnsPromises.resolveMx(domain);
+      return Promise.resolve(records);
+    } catch (err: unknown) {
       const error = err as Error;
-      return error.message;
+      return Promise.reject(error.message);
     }
   }
-  
+
   static async verify(email: string) {
-    const {user, domain} = EmailVerifier.getEmailParts(email);
+    let {user, domain} = EmailVerifier.getEmailParts(email);
 
     if (!domain) return 'Could not find domain';
 
     try {
       const mxRecords = await EmailVerifier.getMxRecords(domain);
 
-      if (!mxRecords) {
-        console.warn('Error getting MX Records');
+      if (typeof mxRecords === 'string') {
+        console.warn('[X] Error getting MX Records');
         return 'Error getting MX records';
       }
 
-      const socket = new Socket();
-      socket.on('connect', ()=> {
-        console.info(`Connected to ${domain}`);
-        socket.write(`HELO ${domain}\r\n`);
-        socket.write(`MAIL FROM: <verifier@verify.me>\r\n`);
-        socket.write(`RCPT TO: <${email}>\r\n`);
-        socket.write('QUIT\r\n');
+
+      const ip = await EmailVerifier.getIP();
+      console.info(`>> IP Address: ${ip}`);
+
+      const client = new Socket();
+      client.on('connect', () => {
+        console.info(`Connected to ${domain}, checking if ${user} is valid...`);
+        client.write(`HELO ${ip}\r\n`);
+        client.write(`MAIL FROM: <verifier@verify.me>\r\n`);
+        client.write(`RCPT TO: <${email}>\r\n`);
+        client.write('QUIT\r\n');
       });
 
-      socket.on('error', (error) => {
+      client.on('error', (error) => {
         console.error(`SOCKET ERROR! ${error.message}`);
       });
 
-      socket.on('data', (data) => {
+      client.on('data', (data) => {
         console.info(data.toString('utf-8'));
       });
-      socket.connect(25, domain);
+      client.connect(25, mxRecords[0].exchange);
     } catch (err) {
-      const error:Error = err as Error;
+      const error: Error = err as Error;
       console.error(error);
       return error.message;
     }
